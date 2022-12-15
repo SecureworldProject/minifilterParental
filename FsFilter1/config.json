@@ -1,0 +1,299 @@
+{
+	"Folders": [
+		{
+			"Path": "C:/Users/Pepito/TEST/",
+			"MountPoint": "E",
+			"Name": "TEST (dokan)",
+			"Driver": "Dokan",
+			"Protection": {
+				"OpTable": "TableTEST",
+				"ChallengeEqGroups": ["Group1", "Group2", "Group3", "Group4"],
+				"Cipher": "simple"
+			},
+			"Complete_path":"\\Device\\HarddiskVolume2\\Users\\Tecnalia\\prueba"
+		},
+		{
+			"Path": "C:/Users/Pepito/",
+			"MountPoint": "G",
+			"Name": "Pepito (winfsp)",
+			"Driver": "WinFSP",
+			"Protection": {
+				"OpTable": "Table1",
+				"ChallengeEqGroups": ["Group1"],
+				"Cipher": "simple"
+			},
+			"Complete_path":"\\Device\\HarddiskVolume2\\Users\\Tecnalia\\source"
+		}
+	],
+
+	"Pendrive": {
+		"MountPoints": "LMNOPQRSTUVWXY",
+		"Driver": "Dokan",
+		"Protection": {
+			"OpTable": "Table2",
+			"ChallengeEqGroups": ["Group1"],
+			"Cipher": "simple"
+		}
+	},
+
+	"ParentalControl": [
+		{
+			"Folder": "C:/Users/Pepito/Documents/playboy_files/",
+			"Users": ["Pepito", "Admin"],
+			"ChallengeEqGroups": ["GroupParental1"]
+		},
+		{
+			"Folder": "C:/Users/Pepito/Documents/TOP_SECRET/",
+			"Users": ["Pepito", "Admin", "Sergio"],
+			"ChallengeEqGroups": ["GroupParental2"]
+		}
+	],
+
+	"SyncFolders": [
+		"C:/Users/Pepito/Google Drive/",
+		"C:\\Users/./Pepito/OneDrive/..\\OneDrive"
+	],
+
+	"OperativeTables": {
+		"Table1": [
+			{
+				"AppType": "BROWSER",
+				"READ": "CIPHER",
+				"WRITE": "DECIPHER"
+			},
+			{
+				"AppType": "MAILER",
+				"READ": "CIPHER",
+				"WRITE": "DECIPHER"
+			},
+			{
+				"AppType": "ANY",
+				"READ": "NOTHING",
+				"WRITE": "NOTHING"
+			}
+		],
+		"Table2": [
+			{
+				"AppType": "ANY",
+				"READ": "DECIPHER",
+				"WRITE": "CIPHER"
+			}
+		],
+		"TableTEST": [
+			{
+				"AppType": "ANY",
+				"READ": "NOTHING",
+				"WRITE": "NOTHING"
+			}
+		]
+	},
+
+	"Apps": [
+		{
+			"AppPath": "C:/Program Files/Google/Chrome/Application/",
+			"AppName": "chrome.exe",
+			"AppType": "BROWSER"
+		},
+		{
+			"AppPath": "C:/Program Files (x86)/Microsoft/Edge/Application",
+			"AppName": "msedge.exe",
+			"AppType": "MAILER"
+		},
+		{
+			"AppPath": "C:\\Program Files\\Microsoft Office\\root\\Office16",
+			"AppName": "OUTLOOK.EXE",
+			"AppType": "MAILER"
+		},
+		{
+			"AppPath": "C:\\Windows",
+			"AppName": "notepad.exe",
+			"AppType": "ANY"
+		},
+		{
+			"AppPath": "C:/Program Files/Sublime Text 3",
+			"AppName": "sublime_text.exe",
+			"AppType": "ANY"
+		},
+		{
+			"AppPath": "C:/Users/Sergio/Documents",
+			"AppName": "rw_test.exe",
+			"AppType": "MAILER"
+		}
+	],
+
+	"ChallengeEqGroups": {
+		"Group1": {
+			"ChallengeList": [
+				{
+					"FileName": "simple_challenge.dll",
+					"Description": "Replicates the string param1 as many times as param2 indicates.",
+					"Props": {
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"param1": "texto",
+						"param2": 3
+					},
+					"Requirements": "none"
+				},
+				{
+					"FileName": "challenge_loader_python.dll",
+					"Description": "Loads a python challenge.",
+					"Props": {
+						"module_python":"simple_challenge",
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"param1": "texto",
+						"param2": 3
+					},
+					"Requirements": "none"
+				},
+				{
+					"FileName": "working_time_challenge.dll",
+					"Description": "The challenge checks if it working time.",
+					"Props": {
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"work_start_time": "08:00",
+						"work_end_time": "18:00"
+					},
+					"Requirements": "none"
+				}
+			]
+		},
+		"Group2": {
+			"ChallengeList": [
+				{
+					"FileName": "challenge_loader_python.dll",
+					"Description": "This challenge looks for a certain pattern in the wall using a python code.",
+					"Props": {
+						"module_python": "challengeMM_RGB",
+						"validity_time": 300,
+						"refresh_time": 180,
+						"param1": "Por favor haz una captura de la imagen que visualizas en la pantalla de la pared"
+					},
+					"Requirements": "mobile-camera"
+				},
+				{
+					"FileName": "challenge_loader_python.dll",
+					"Description": "This challenge looks for a certain pattern in the wall using a python code.",
+					"Props": {
+						"module_python": "RGB_plus",
+						"validity_time": 300,
+						"refresh_time": 180,
+						"param1": "Por favor haz una captura de la imagen que visualizas en la pantalla de la pared",
+						"param3": "https://pics.filmaffinity.com/the_pink_panther-805664537-large.jpg"
+					},
+					"Requirements": "mobile-camera"
+				},
+				{
+					"FileName": "tone_background.dll",
+					"Description": "Checks the existence of an inaudible tone in the background.",
+					"Props": {
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"freq": "35000hz"
+					},
+					"Requirements": "microphone"
+				}
+			]
+		},
+		"Group3": {
+			"ChallengeList": [
+				{
+					"FileName": "challenge_loader_python.dll",
+					"Description": "Loads a python challenge.",
+					"Props": {
+						"module_python": "simple_challenge",
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"param1": "textpy",
+						"param2": 2
+					},
+					"Requirements": "none"
+				}
+			]
+		},
+		"Group4": {
+			"ChallengeList": [
+				{
+					"FileName": "challenge_loader_python.dll",
+					"Description": "Loads a python challenge.",
+					"Props": {
+						"module_python": "simple_challenge",
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"param1": "py2",
+						"param2": 3
+					},
+					"Requirements": "none"
+				}
+			]
+		},
+
+		"GroupParental1": {
+			"ChallengeList": [
+				{
+					"FileName": "set_key_1.dll",
+					"Description": "Always set the key to true.",
+					"Props": {
+						"validity_time": 3600,
+						"refresh_time": 3000
+					},
+					"Requirements": "none"
+				}
+			]
+		},
+		"GroupParental2": {
+			"ChallengeList": [
+				{
+					"FileName": "check_age.dll",
+					"Description": "Checks the age of the user using the pc is higher or equal to the given as parameter.",
+					"Props": {
+						"validity_time": 3600,
+						"refresh_time": 3000,
+						"min_age": 18
+					},
+					"Requirements": "camera"
+				}
+			]
+		}
+	},
+
+	"Ciphers": {
+		"simple": {
+			"FileName": "simple_cipher.dll",
+			"BlockSize": 0,
+			"Custom": ""
+		},
+		"AES-128bit": {
+			"FileName": "AES128.dll",
+			"BlockSize": 128,
+			"Custom": ""
+		},
+		"AES-128bitv2": {
+			"FileName": "AES128.dll",
+			"BlockSize": 128,
+			"Custom": "version=2"
+		},
+		"RSA": {
+			"FileName": "RSA.dll",
+			"BlockSize": 0,
+			"Custom": ""
+		}
+	},
+
+	"ThirdParties": {
+		"Izertis":{
+			"Cipher": "RSA",
+			"Key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCqGKukO1De7zhZj6+H0qtjTkVxwTCpvKe4eCZ0FPqri0cb2JZfXJ/DgYSF6vUpwmJG8wVQZKjeGcjDOL5UlsuusFncCzWBQ7RKNUSesmQRMSGkVb1/3j+skZ6UtW+5u09lHNsj6tQ51s1SPrCBkedbNf0Tp0GbMJDyR4e9T04ZZwIDAQAB"
+		},
+		"Optiva":{
+			"Cipher": "RSA",
+			"Key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCgohxrggmfhx6H1w+U7PQLW8MlFGQpPANzNoxH8x/ar4y1BqNm97k7QYUJcDxLZ8x97xwbsF21GFIzDRBzPI7bzl0WORSh14BsSK5piB1JCAD8wlpuFy/sXnL/7jj2jU2oDCI5ITG+OdHE41jXVVbfTrQ2+NpIg6OXwWXE91B5CwIDAQAB"
+		},
+		"Others":{
+			"Cipher": "RSA",
+			"Key": ""
+		}
+	}
+}
