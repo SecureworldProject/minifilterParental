@@ -141,7 +141,7 @@ WCHAR config_path[MAX_FILEPATH_LENGTH];
 
 const WCHAR* securemirror_minifilter_config = L"\\Device\\HarddiskVolume2\\Users\\Tecnalia\\SECUREMIRROR_MINIFILTER_CONFIG.txt";
 
-const WCHAR* rutasparentales_file = L"\\Device\\HarddiskVolume2\\Users\\Tecnalia\\rutas_parentales.txt"; //OK
+const WCHAR* rutasparentales_file = L"\\Device\\HarddiskVolume2\\Users\\Tecnalia\\parental_paths.txt"; //OK
 
 BOOLEAN escenario_empresarial = FALSE;
 
