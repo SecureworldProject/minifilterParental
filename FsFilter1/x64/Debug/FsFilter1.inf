@@ -10,7 +10,7 @@ Signature   = "$Windows NT$"
 Class = "Encryption"
 ClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
 Provider    = %ManufacturerName%
-DriverVer = 12/12/2023,17.44.36.311
+DriverVer = 12/12/2023,17.53.0.682
 CatalogFile = FsFilter1.cat
 PnpLockDown=1
 
@@ -100,3 +100,4 @@ Instance1.Name          = "FsFilter1 Instance"
 ;Instance1.Altitude       = "371000"
 Instance1.Altitude       = "145030"
 Instance1.Flags         = 0x0              ; Allow all attachments
+
