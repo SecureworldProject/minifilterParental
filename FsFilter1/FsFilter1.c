@@ -1261,7 +1261,7 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
                     wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el ;
                     if (i + 3 < (int)input_len) //Si no es el ultimo caracter
                     {
-                        challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 1] = L'\0';
+                        challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 2] = L'\0';
                     }
                     else //Si es el último, workaround para eliminar el :
                     {
