@@ -607,13 +607,22 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
                                     //Componer la ruta con la carpeta config_path+challenge
                                     wcsncpy(challenge_ruta_absoluta, config_path, wcslen(config_path)); //Copiamos el config_path sin el \0
                                     aux = challenge_ruta_absoluta + wcslen(config_path);
-                                    wcsncpy(aux, challenge, wcslen(challenge));
-                                    aux = aux + wcslen(challenge);
+                                    if (challenge[wcslen(challenge) - 1] == L':')
+                                    {
+                                        //PRINT("Encuentra el caracter %lc", challenge[wcslen(challenge) - 1]);
+                                        wcsncpy(aux, challenge, wcslen(challenge) - 1);
+                                        aux = aux + wcslen(challenge) - 1;
+                                    }
+                                    else
+                                    {
+                                        wcsncpy(aux, challenge, wcslen(challenge));
+                                        aux = aux + wcslen(challenge);
+                                    }
                                     *aux = L'\0';
                                     aux = NULL;
                                     PRINT("8");
                                     //Hasta aqui OK
-                                    //PRINT("Ruta completa %ws",challenge_ruta_absoluta);
+                                    PRINT("Ruta completa %ws",challenge_ruta_absoluta);
                                     //IO_STATUS_BLOCK ioStatus3;
                                     //HANDLE fileHandle3 = NULL;
                                     //OBJECT_ATTRIBUTES objectAttributes3;
@@ -1261,7 +1270,7 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
                     wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el ;
                     if (i + 3 < (int)input_len) //Si no es el ultimo caracter
                     {
-                        challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 2] = L'\0';
+                        challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 1] = L'\0';
                     }
                     else //Si es el último, workaround para eliminar el :
                     {

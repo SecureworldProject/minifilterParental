@@ -1,6 +1,6 @@
 ﻿  Building 'FsFilter1' with toolset 'WindowsKernelModeDriver10.0' and the 'Desktop' target platform.
   Stamping x64\Debug\FsFilter1.inf
-  Stamping [Version] section with DriverVer=12/13/2023,15.13.36.438
+  Stamping [Version] section with DriverVer=12/14/2023,9.27.53.114
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf : warning 1420: [DefaultInstall]-based INF cannot be processed as Primitive.
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf(25-25): warning 1421: Section [DefaultInstall] should have an architecture decoration.
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf(36-36): warning 1421: Section [DefaultUninstall] should have an architecture decoration.
