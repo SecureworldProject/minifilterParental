@@ -481,7 +481,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
     //Read rutas_parentales_file. En este fichero se describen las rutas que hay que bloquear
     //junto con los ficheros de challenges asociados a las mismas.
     //Se bloqueara una ruta más adelante si no se han activado todos sus challenges
-    HANDLE fileHandle = NULL;
+    HANDLE fileHandle;
     OBJECT_ATTRIBUTES objectAttributes;
 
     PVOID fileObject;
@@ -620,6 +620,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
                                     }
                                     *aux = L'\0';
                                     aux = NULL;
+                                    challenge = NULL;
                                     PRINT("8");
                                     //Hasta aqui OK
                                     PRINT("Ruta completa %ws",challenge_ruta_absoluta);
@@ -654,6 +655,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
                                         {
                                             PRINT("11");
                                             block_access = 1;
+                                            ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
                                         }
                                         
 
@@ -1298,5 +1300,6 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
         }
         i++;
     }
+    aux = NULL;
     return 0;
 }
