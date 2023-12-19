@@ -517,9 +517,9 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
             FltReadFile(flt_objects->Instance, (PFILE_OBJECT)fileObject, &offset, MEMORY, result,
                 FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED,
                 &bytes_read, NULL, NULL); //OK  //Falla si se accede a rutas_parentales
+            ObDereferenceObject(fileObject);
             FltClose(fileHandle);
             //PRINT("Content       (%.*s)\r\n",bytes_read, (char*)result);
-            ObDereferenceObject(fileObject);
             WCHAR wText[4000];
 
             mbstowcs(wText, (char*)result, bytes_read);
@@ -680,6 +680,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
         }
         else
         {
+            ObDereferenceObject(fileObject);
             FltClose(fileHandle);
         }
     }
