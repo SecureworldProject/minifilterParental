@@ -104,7 +104,7 @@ FLT_POSTOP_CALLBACK_STATUS mini_post_create(PFLT_CALLBACK_DATA data, PCFLT_RELAT
 
 BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, WCHAR* folder);
 BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, WCHAR folders[10][MAX_FILEPATH_LENGTH], const int len);
-BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
+//BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
 BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
 NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PUNICODE_STRING img_path);
 NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING img_path);
@@ -272,7 +272,9 @@ NTSTATUS instance_setup(_In_ PCFLT_RELATED_OBJECTS flt_objects, _In_ FLT_INSTANC
 
             // Now allocate a buffer to hold this name
 #pragma prefast(suppress:__WARNING_MEMORY_LEAK, "ctx->Name.Buffer will not be leaked because it is freed in cleanup_volume_context")
-            ctx->Name.Buffer = ExAllocatePoolWithTag(NonPagedPool, size, SECUREWORLD_VOLUME_NAME_TAG);
+//#pragma warning(suppress : 4996)
+            //ctx->Name.Buffer = ExAllocatePoolWithTag(NonPagedPool, size, SECUREWORLD_VOLUME_NAME_TAG);
+            ctx->Name.Buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, size, SECUREWORLD_VOLUME_NAME_TAG);
             if (ctx->Name.Buffer == NULL) {
                 status = STATUS_INSUFFICIENT_RESOURCES;
                 leave;
@@ -527,7 +529,9 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
             //PRINT("Antes de llamar a la funcion %ws", wText);
             //PRINT("Size antes de llamar a la funcion %d", (int)size);
             //int out = fill_forbidden_folders(wText, &forbidden_folders, &forbidden_folders_len);
-            int out = fill_forbidden_folders_and_challenges_by_folder(wText);/*
+            //int out = fill_forbidden_folders_and_challenges_by_folder(wText);
+            fill_forbidden_folders_and_challenges_by_folder(wText);
+            /*
             for (int i = 0; i < 10; i++)
             {
                 PRINT("Forbidden_folders   %d    (%ws)\n", i,forbidden_folders[i]);
@@ -628,7 +632,8 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
                                     //OBJECT_ATTRIBUTES objectAttributes3;
                                     //UNICODE_STRING myUnicodeStr3;
 
-                                    RtlInitUnicodeString(&myUnicodeStr, challenge_ruta_absoluta);
+                                    challenge_ruta_absoluta[MAX_FILEPATH_LENGTH - 1] = L'\0'; // Innecesario, pero sirve para quitar el warning C6053
+                                    RtlInitUnicodeString(&myUnicodeStr, challenge_ruta_absoluta); // Omitir el warning porque se ha agregado el '\0' con aux
                                     InitializeObjectAttributes(&objectAttributes,
                                         &myUnicodeStr,
                                         OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
@@ -796,8 +801,8 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 p_path_match = wcsstr(p_file_path, folder);
                 if (p_path_match != NULL && p_path_match == p_file_path) {
                     ret_value = TRUE;   // Match
-
-                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
@@ -814,7 +819,8 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 else {
                     ret_value = FALSE;  // NO match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
@@ -877,7 +883,8 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -894,7 +901,8 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     else {
                         ret_value = FALSE;  // NO match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -916,7 +924,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
     *pp_file_name = NULL;
     return ret_value;
 }
-
+/*
 BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name) {
     if (!CHECK_FILENAME) {
         *pp_file_name = NULL;
@@ -946,7 +954,8 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Si hay Match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -963,7 +972,8 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     else {
                         ret_value = FALSE;  // NO match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -985,7 +995,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
     *pp_file_name = NULL;
     return ret_value;
 }
-
+*/
 
 
 /**
@@ -1025,7 +1035,8 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 if (p_path_match!=NULL && p_path_match==p_file_path) {
                     ret_value = TRUE;   // Match
 
-                    *pp_file_name = (WCHAR *)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    //*pp_file_name = (WCHAR *)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR *)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
@@ -1041,7 +1052,8 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 } else {
                     ret_value = FALSE;  // NO match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
@@ -1085,8 +1097,9 @@ NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PU
 
     p_img_path->Length = 0;
     p_img_path->MaximumLength = MAX_FILEPATH_LENGTH;
-    p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
-    if (p_img_path->Buffer) {
+    //p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
+    p_img_path->Buffer = (PWSTR)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
+    if (NULL != p_img_path->Buffer) {
         status = get_process_image_path(proc_handle, p_img_path);
         if (NT_SUCCESS(status)) {
             NOOP
@@ -1166,7 +1179,8 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING p_img_pat
     }
 
     // Allocate a temporary buffer to store the path name
-    buffer = ExAllocatePoolWithTag(NonPagedPool, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
+    //buffer = ExAllocatePoolWithTag(NonPagedPool, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
+    buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
 
     if (NULL == buffer) {
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -1244,9 +1258,9 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
     size_t input_len = wcslen(input);
     forbidden_folders_len = 0;
     //Inicializamos el numero de challenges de cada carpeta a 0 
-    for (int i = 0; i < 10; i++)
+    for (int idx = 0; idx < 10; idx++)
     {
-        challenges_by_folder_len[i] = 0;
+        challenges_by_folder_len[idx] = 0;
     }
     WCHAR* aux = input;
     while (i < (int)input_len)
@@ -1254,11 +1268,11 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
         len_folder++;
         if (input[i] == L':') //Si encuentra :, guarda hasta ahí en forbidden_folders
         {
-            wcsncpy(forbidden_folders[forbidden_folders_len], aux, len_folder - 1);  //Copiamos todo menos el ;
+            wcsncpy(forbidden_folders[forbidden_folders_len], aux, len_folder - 1);  //Copiamos todo menos el :
             forbidden_folders[forbidden_folders_len][len_folder - 1] = L'\0'; //Le ponemos un /0 al final porque wcsncpy no lo hace
             //PRINT("Forbidden_folders   0    (%ws)\n", forbidden_folders[0]);
             //PRINT("Forbidden_folders   1    (%ws)\n", forbidden_folders[1]);
-            aux= input + i + 1; //Actualizamos Aux para que apunte al primer challenge
+            aux = input + i + 1; //Actualizamos Aux para que apunte al primer challenge
             len_folder = 0;  //Siguiente carpeta a guardar
             //Ahora rellenamos los challenges asociados a la carpeta prohibida
             i++;
@@ -1267,7 +1281,7 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
                 len_challenge++;
                 if (input[i] == L':') //Si encuentra :, rellena un challenge asociado a esa carpeta
                 {
-                    wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el ;
+                    wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el :
                     if (i + 3 < (int)input_len) //Si no es el ultimo caracter
                     {
                         challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 1] = L'\0';
