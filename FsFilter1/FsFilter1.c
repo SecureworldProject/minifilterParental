@@ -619,13 +619,13 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
             {
                 PRINT("10");
                 
-                PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
                 //Bloquear acceso si el usuario intenta acceder a esa carpeta
                 //
                 p_file_name = NULL;
                 if (is_in_folder(data, &p_file_name, forbidden_folders[i]))
                 {
                     PRINT("11");
+                    PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
                     block_access = 1;
                     ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
                 }
