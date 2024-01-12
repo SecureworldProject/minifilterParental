@@ -1042,7 +1042,7 @@ NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PU
     p_img_path->Length = 0;
     p_img_path->MaximumLength = MAX_FILEPATH_LENGTH;
     p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
-    if (p_img_path->Buffer) {
+    if (NULL!=p_img_path->Buffer) {
         status = get_process_image_path(proc_handle, p_img_path);
         if (NT_SUCCESS(status)) {
             NOOP
@@ -1200,9 +1200,9 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
     size_t input_len = wcslen(input);
     forbidden_folders_len = 0;
     //Inicializamos el numero de challenges de cada carpeta a 0 
-    for (int i = 0; i < 10; i++)
+    for (int idx = 0; idx < 10; idx++)
     {
-        challenges_by_folder_len[i] = 0;
+        challenges_by_folder_len[idx] = 0;
     }
     WCHAR* aux = input;
     while (i < (int)input_len)
