@@ -513,7 +513,6 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
         NULL, 0, 0);
     //Hasta aqui est� OK
     if (!NT_SUCCESS(status)){
-        FltClose(fileHandle);
         return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
     }   
     
@@ -612,6 +611,11 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
             status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
                 &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
                 NULL, 0, 0);
+            
+            if (!NT_SUCCESS(status))
+            { 
+                    return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+            }
             FltClose(fileHandle);
             PRINT("9");
             //Hasta aqui OK
@@ -633,26 +637,9 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
                 
 
             }
-
-            //else
-            //{
-            //    PRINT("Challenge existente %ws", challenge);
-            //    FltClose(fileHandle);
-            //}
-            
             
         }
     }
-    
-
-    
-    
-        
- 
-            
-    
-        
-    
 
 
 
