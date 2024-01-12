@@ -420,7 +420,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
     NTSTATUS status = STATUS_SUCCESS;
 
     
-    
+    WCHAR* p_file_name = NULL;
     
     int block_access = 0;
 
