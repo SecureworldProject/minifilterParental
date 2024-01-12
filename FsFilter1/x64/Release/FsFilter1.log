@@ -1,12 +1,12 @@
 ﻿  Building 'FsFilter1' with toolset 'WindowsKernelModeDriver10.0' and the 'Desktop' target platform.
   Stamping x64\Release\FsFilter1.inf
-  Stamping [Version] section with DriverVer=12/19/2023,15.24.33.550
+  Stamping [Version] section with DriverVer=01/12/2024,12.5.59.618
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf : warning 1420: [DefaultInstall]-based INF cannot be processed as Primitive.
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf(25-25): warning 1421: Section [DefaultInstall] should have an architecture decoration.
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf(36-36): warning 1421: Section [DefaultUninstall] should have an architecture decoration.
 C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.inf(75-75): warning 1205: Section [MiniFilter.DriverFiles] referenced from DelFiles and CopyFiles directive.
   FsFilter1.c
-C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(530,17): error C2220: la siguiente advertencia se trata como un error
-C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(530,17): warning C4189: 'out': la variable local se ha inicializado pero no se hace referencia a ella
-C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(1250,16): warning C4456: la declaración de 'i' oculta la declaración local anterior
-C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(1243,9): message : vea la declaración de 'i'
+C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(491,9): error C2220: la siguiente advertencia se trata como un error
+C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(491,9): warning C4189: 'out': la variable local se ha inicializado pero no se hace referencia a ella
+C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(1220,16): warning C4456: la declaración de 'i' oculta la declaración local anterior
+C:\Users\Tecnalia\Documents\GitHub\minifilterParental\FsFilter1\FsFilter1.c(1213,9): message : vea la declaración de 'i'
