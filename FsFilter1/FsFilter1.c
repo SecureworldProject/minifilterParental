@@ -638,7 +638,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
     }
 
 
-
+    block_access=0;
     if (block_access == 1)
     {
         DbgPrint("[CUSTOM] INTERCEPTING OPERATION");
