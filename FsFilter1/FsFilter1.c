@@ -619,13 +619,13 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
             {
                 PRINT("10");
                 
+                PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
                 //Bloquear acceso si el usuario intenta acceder a esa carpeta
                 //
                 p_file_name = NULL;
                 if (is_in_folder(data, &p_file_name, forbidden_folders[i]))
                 {
                     PRINT("11");
-                    PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
                     block_access = 1;
                     ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
                 }
@@ -753,7 +753,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 if (p_path_match != NULL && p_path_match == p_file_path) {
                     ret_value = TRUE;   // Match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
@@ -770,7 +770,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 else {
                     ret_value = FALSE;  // NO match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
@@ -833,7 +833,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -850,7 +850,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     else {
                         ret_value = FALSE;  // NO match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -902,7 +902,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Si hay Match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -919,7 +919,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     else {
                         ret_value = FALSE;  // NO match
 
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -981,7 +981,7 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 if (p_path_match!=NULL && p_path_match==p_file_path) {
                     ret_value = TRUE;   // Match
 
-                    *pp_file_name = (WCHAR *)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR *)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
@@ -997,7 +997,7 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 } else {
                     ret_value = FALSE;  // NO match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
