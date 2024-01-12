@@ -10,7 +10,7 @@ Signature   = "$Windows NT$"
 Class = "Encryption"
 ClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
 Provider    = %ManufacturerName%
-DriverVer = 01/12/2024,12.6.1.812
+DriverVer = 01/12/2024,12.17.39.472
 CatalogFile = FsFilter1.cat
 PnpLockDown=1
 
