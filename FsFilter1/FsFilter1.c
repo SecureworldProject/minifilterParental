@@ -104,7 +104,7 @@ FLT_POSTOP_CALLBACK_STATUS mini_post_create(PFLT_CALLBACK_DATA data, PCFLT_RELAT
 
 BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, WCHAR* folder);
 BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, WCHAR folders[10][MAX_FILEPATH_LENGTH], const int len);
-//BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
+BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
 BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name);
 NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PUNICODE_STRING img_path);
 NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING img_path);
@@ -112,6 +112,8 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING img_path)
 int fill_forbidden_folders(WCHAR* input);
 int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input);
 int fill_config_path(WCHAR* input);
+BOOLEAN check_access_for_folder(PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS flt_objects);
+void rewrite_challenge_filenames_as_absolute_paths();
 
 ///////////////////////////////////////////
 /////        GLOBAL VARIABLES         /////
@@ -272,9 +274,7 @@ NTSTATUS instance_setup(_In_ PCFLT_RELATED_OBJECTS flt_objects, _In_ FLT_INSTANC
 
             // Now allocate a buffer to hold this name
 #pragma prefast(suppress:__WARNING_MEMORY_LEAK, "ctx->Name.Buffer will not be leaked because it is freed in cleanup_volume_context")
-//#pragma warning(suppress : 4996)
-            //ctx->Name.Buffer = ExAllocatePoolWithTag(NonPagedPool, size, SECUREWORLD_VOLUME_NAME_TAG);
-            ctx->Name.Buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, size, SECUREWORLD_VOLUME_NAME_TAG);
+            ctx->Name.Buffer = ExAllocatePoolWithTag(NonPagedPool, size, SECUREWORLD_VOLUME_NAME_TAG);
             if (ctx->Name.Buffer == NULL) {
                 status = STATUS_INSUFFICIENT_RESOURCES;
                 leave;
@@ -380,6 +380,151 @@ NTSTATUS instance_setup(_In_ PCFLT_RELATED_OBJECTS flt_objects, _In_ FLT_INSTANC
         }
     }
 
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    PRINT("1");
+    //Read rutas_parentales_file. En este fichero se describen las rutas que hay que bloquear
+    //junto con los ficheros de challenges asociados a las mismas.
+    //Se bloqueara una ruta mï¿½s adelante si no se han activado todos sus challenges
+    HANDLE fileHandle;
+    OBJECT_ATTRIBUTES objectAttributes;
+
+    PVOID fileObject;
+    UNICODE_STRING myUnicodeStr;
+    RtlInitUnicodeString(&myUnicodeStr, rutasparentales_file);
+    InitializeObjectAttributes(&objectAttributes,
+        &myUnicodeStr,
+        OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
+        NULL,
+        NULL);
+    IO_STATUS_BLOCK ioStatus;
+
+    status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
+        &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
+        NULL, 0, 0);
+    if (!NT_SUCCESS(status)) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+
+    PRINT("2");
+    status = ObReferenceObjectByHandle(fileHandle, GENERIC_READ, NULL, KernelMode,
+        &fileObject,
+        NULL);
+    if (!NT_SUCCESS(status)) {
+        //ObDereferenceObject(fileObject);
+        FltClose(fileHandle);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+
+
+    PRINT("3");
+
+    LARGE_INTEGER offset;
+    offset.QuadPart = 0;
+    ULONG bytes_read;
+    bytes_read = 0;
+    char result[4000];
+
+    //PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer); //OK
+        //Comprobamos si estï¿½ accediendo a los ficheros sobre los que se harï¿½ FltRead. Sino, romperia
+    status = FltReadFile(flt_objects->Instance, (PFILE_OBJECT)fileObject, &offset, MEMORY, result,
+        FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED,
+        &bytes_read, NULL, NULL); //OK  //Falla si se accede a rutas_parentales
+    ObDereferenceObject(fileObject);
+    FltClose(fileHandle);
+    if (!NT_SUCCESS(status)) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+
+    //PRINT("Content       (%.*s)\r\n",bytes_read, (char*)result);
+    WCHAR wText[4000];
+
+    mbstowcs(wText, (char*)result, bytes_read);
+    wText[bytes_read] = L'\0';
+    //PRINT("Antes de llamar a la funcion %ws", wText);
+    //PRINT("Size antes de llamar a la funcion %d", (int)size);
+    //int out = fill_forbidden_folders(wText, &forbidden_folders, &forbidden_folders_len);
+    fill_forbidden_folders_and_challenges_by_folder(wText);
+    //for (int i = 0; i < 10; i++)
+    //{
+    //    PRINT("Forbidden_folders   %d    (%ws)\n", i,forbidden_folders[i]);
+    //}
+    //Hasta aqui estï¿½ OK
+
+
+    //Read SECUREMIRROR_MINIFILTER_CONFIG para obtener la carpeta donde se ubicarï¿½n los challenges
+    // HANDLE fileHandle2 = NULL;
+
+    //OBJECT_ATTRIBUTES objectAttributes2;
+    //UNICODE_STRING myUnicodeStr2;
+    RtlInitUnicodeString(&myUnicodeStr, securemirror_minifilter_config);
+    InitializeObjectAttributes(&objectAttributes,
+        &myUnicodeStr,
+        OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
+        NULL,
+        NULL);
+    //IO_STATUS_BLOCK ioStatus2;
+    status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
+        &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
+        NULL, 0, 0);
+    //Hasta aqui estï¿½ OK
+    if (!NT_SUCCESS(status)) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+
+
+    PRINT("4");
+    status = ObReferenceObjectByHandle(fileHandle, GENERIC_READ, NULL, KernelMode,
+        &fileObject,
+        NULL);
+    if (!NT_SUCCESS(status)) {
+        //ObDereferenceObject(fileObject);
+        FltClose(fileHandle);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+    //Hasta aqui esta OK
+
+
+    //PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer);
+
+    PRINT("5");
+
+    //LARGE_INTEGER offset2;
+    //offset2.QuadPart = 0;
+    //ULONG bytes_read2;
+    //bytes_read2 = 0;
+
+    //char result2[4000];
+
+    PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer); //OK
+
+    status = FltReadFile(flt_objects->Instance, (PFILE_OBJECT)fileObject, &offset, MEMORY, result,
+        FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED,
+        &bytes_read, NULL, NULL);
+    ObDereferenceObject(fileObject);
+    FltClose(fileHandle);
+    if (!NT_SUCCESS(status)) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    }
+
+    //Hasta aqui esta OK
+
+    PRINT("6");
+    PRINT("Bytes read: %d", bytes_read);
+    mbstowcs(config_path, result, bytes_read);
+    config_path[bytes_read] = L'\0';
+    PRINT("Antes de llamar a la funcion %ws", config_path);
+    //Hasta aqui esta OK
+    //Comprobar si el proceso es Securemirror. Si es, se permite todo
+
+    ///////////////////////////////////////////////////////////////////
+
+    // Iterate over all the challenge filenames and turn them into full paths (in-place)
+    rewrite_challenge_filenames_as_absolute_paths();
+
+    ///////////////////////////////////////////////////////////////////
+
     return status;
 }
 
@@ -421,294 +566,122 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED
     UNICODE_STRING img_path;
     NTSTATUS status = STATUS_SUCCESS;
 
-    if (NT_SUCCESS(get_requestor_process_image_path(data, &img_path)) && img_path.Length > 0) {
-        //PRINT("SW: PreCreate from %wZ", img_path);
-        ExFreePoolWithTag(img_path.Buffer, SECUREWORLD_REQUESTOR_NAME_TAG);
-    }
-    else {
-        //PRINT("SW: PreCreate from ???");
-    }
-
     WCHAR* p_file_name = NULL;
-    if (is_special_folder_get_file_name(data, &p_file_name)) {
-        if (p_file_name) {
-            //PRINT("SW: PreCreate in special folder           (%ws)\r\n", p_file_name);
-            ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
-            p_file_name = NULL;
-        }
-    }
-    else {
-        if (p_file_name) {
-            //PRINT("SW: PreCreate NOT in special folder       (%ws)\r\n", p_file_name);
-            ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
-            p_file_name = NULL;
-        }
-    }
-
-    /*
-    int block_access = 1;
-
-    //Comprobamos si está accediendo a los ficheros sobre los que se hará FltRead. Sino, romperia
-    if (NT_SUCCESS(get_requestor_process_image_path(data, &img_path))
-        && img_path.Length > 0)
-    { 
-        PFLT_FILE_NAME_INFORMATION file_name_info;
-        WCHAR p_file_path[MAX_FILEPATH_LENGTH] = { 0 };
-        status = FltGetFileNameInformation(data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &file_name_info);
-        if (NT_SUCCESS(status))
-        {
-            status = FltParseFileNameInformation(file_name_info);
-            if (NT_SUCCESS(status))
-            {
-                if (wcscmp(file_name_info->Name.Buffer, rutasparentales_file) == 0
-                    || wcscmp(file_name_info->Name.Buffer, securemirror_minifilter_config) == 0)
-                {
-                    PRINT("ACCEDIDO A FICHERO");
-                    block_access =0;
-                }
-            }
-            FltReleaseFileNameInformation(file_name_info);
-        }
-        ExFreePoolWithTag(img_path.Buffer, SECUREWORLD_REQUESTOR_NAME_TAG);
-    }
-    if (block_access == 0)
-    {
-        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
-    }
-    */
     
-    int block_access = 0;
+    BOOLEAN block_access = FALSE;
 
-    PRINT("1");
-    //Read rutas_parentales_file. En este fichero se describen las rutas que hay que bloquear
-    //junto con los ficheros de challenges asociados a las mismas.
-    //Se bloqueara una ruta más adelante si no se han activado todos sus challenges
-    HANDLE fileHandle = NULL;
+    HANDLE fileHandle;
     OBJECT_ATTRIBUTES objectAttributes;
 
     PVOID fileObject;
     UNICODE_STRING myUnicodeStr;
-    RtlInitUnicodeString(&myUnicodeStr, rutasparentales_file);
-    InitializeObjectAttributes(&objectAttributes,
-        &myUnicodeStr,
-        OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
-        NULL,
-        NULL);
     IO_STATUS_BLOCK ioStatus;
 
-    status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
-        &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
-        NULL, 0, 0);
-    if (NT_SUCCESS(status))
+
+    block_access = check_access_for_folder(data, flt_objects);///////////////////////////////////////////////////////////////////////
+
+    /*
+    for (int i = 0; i < forbidden_folders_len; i++) //Para cada carpeta
     {
-        PRINT("2");
-        status = ObReferenceObjectByHandle(fileHandle, GENERIC_READ, NULL, KernelMode,
-            &fileObject,
-            NULL);
-        if (NT_SUCCESS(status))
+        for (int j = 0; j < challenges_by_folder_len[i]; j++) //Para cada challenge asociado a esa carpeta
         {
-            PRINT("3");
-            LARGE_INTEGER offset;
-            offset.QuadPart = 0;
-            ULONG bytes_read;
-            bytes_read = 0;
-            char result[4000];
-
-            //PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer); //OK
-                //Comprobamos si está accediendo a los ficheros sobre los que se hará FltRead. Sino, romperia
-            FltReadFile(flt_objects->Instance, (PFILE_OBJECT)fileObject, &offset, MEMORY, result,
-                FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED,
-                &bytes_read, NULL, NULL); //OK  //Falla si se accede a rutas_parentales
-            ObDereferenceObject(fileObject);
-            FltClose(fileHandle);
-            //PRINT("Content       (%.*s)\r\n",bytes_read, (char*)result);
-            WCHAR wText[4000];
-
-            mbstowcs(wText, (char*)result, bytes_read);
-            wText[bytes_read] = L'\0';
-            //PRINT("Antes de llamar a la funcion %ws", wText);
-            //PRINT("Size antes de llamar a la funcion %d", (int)size);
-            //int out = fill_forbidden_folders(wText, &forbidden_folders, &forbidden_folders_len);
-            //int out = fill_forbidden_folders_and_challenges_by_folder(wText);
-            fill_forbidden_folders_and_challenges_by_folder(wText);
-            /*
-            for (int i = 0; i < 10; i++)
+            
+            WCHAR* challenge = challenges_by_folder[i][j];
+            PRINT("Challenge %ws", challenge); //OK
+            WCHAR challenge_ruta_absoluta[MAX_FILEPATH_LENGTH];
+            WCHAR* aux = NULL;
+            //Componer la ruta con la carpeta config_path+challenge
+            wcsncpy(challenge_ruta_absoluta, config_path, wcslen(config_path)); //Copiamos el config_path sin el \0
+            aux = challenge_ruta_absoluta + wcslen(config_path);
+            if (challenge[wcslen(challenge) - 1] == L':')
             {
-                PRINT("Forbidden_folders   %d    (%ws)\n", i,forbidden_folders[i]);
-            }*/
-            //Hasta aqui está OK
-            
-            
-            //Read SECUREMIRROR_MINIFILTER_CONFIG para obtener la carpeta donde se ubicarán los challenges
-            // HANDLE fileHandle2 = NULL;
+                //PRINT("Encuentra el caracter %lc", challenge[wcslen(challenge) - 1]);
+                wcsncpy(aux, challenge, wcslen(challenge) - 1);
+                aux = aux + wcslen(challenge) - 1;
+            }
+            else
+            {
+                wcsncpy(aux, challenge, wcslen(challenge));
+                aux = aux + wcslen(challenge);
+            }
+            *aux = L'\0';
+            aux = NULL;
+            challenge = NULL;
+            PRINT("8");
+            //Hasta aqui OK
+            PRINT("Ruta completa %ws",challenge_ruta_absoluta);
 
-            //OBJECT_ATTRIBUTES objectAttributes2;
-            //UNICODE_STRING myUnicodeStr2;
-            RtlInitUnicodeString(&myUnicodeStr, securemirror_minifilter_config);
+            //////////////////////////////////////////////////////////////////////
+            //IO_STATUS_BLOCK ioStatus3;
+            //HANDLE fileHandle3 = NULL;
+            //OBJECT_ATTRIBUTES objectAttributes3;
+            //UNICODE_STRING myUnicodeStr3;
+
+            RtlInitUnicodeString(&myUnicodeStr, challenge_ruta_absoluta);
             InitializeObjectAttributes(&objectAttributes,
                 &myUnicodeStr,
                 OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
                 NULL,
                 NULL);
-            //IO_STATUS_BLOCK ioStatus2;
+            //Necesito la ruta absoluta de cada challenge
             status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
                 &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
                 NULL, 0, 0);
-            //Hasta aqui está OK
             
             
-            if (NT_SUCCESS(status))
+            PRINT("9");
+            //Hasta aqui OK
+
+            if (!NT_SUCCESS(status)) //Si no existe
             {
-                PRINT("4");
-                status = ObReferenceObjectByHandle(fileHandle, GENERIC_READ, NULL, KernelMode,
-                    &fileObject,
-                    NULL);
-                //Hasta aqui esta OK
+                PRINT("10");
                 
-                //PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer);
-                if (NT_SUCCESS(status))
+                PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
+                //Bloquear acceso si el usuario intenta acceder a esa carpeta
+
+                block_access = check_access_for_folder(forbidden_folders[i]);
+                p_file_name = NULL;
+                if (is_in_folder(data, &p_file_name, forbidden_folders[i]))
                 {
-                    PRINT("5");
-                    //LARGE_INTEGER offset2;
-                    //offset2.QuadPart = 0;
-                    //ULONG bytes_read2;
-                    //bytes_read2 = 0;
-
-                    //char result2[4000];
-
-                    PRINT("File object       (%ws)\r\n", (((PFILE_OBJECT)(fileObject))->FileName).Buffer); //OK
-
-                    status = FltReadFile(flt_objects->Instance, (PFILE_OBJECT)fileObject, &offset, MEMORY, result,
-                        FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET | FLTFL_IO_OPERATION_NON_CACHED,
-                        &bytes_read, NULL, NULL);  //Falla si se accede a securemirror_config
-                    ObDereferenceObject(fileObject);
-                    FltClose(fileHandle);
-                   
-                    //Hasta aqui esta OK
-                    if (NT_SUCCESS(status))
-                    {
-                        PRINT("6");
-                        PRINT("Bytes read: %d", bytes_read);
-                        mbstowcs(config_path, result, bytes_read);
-                        config_path[bytes_read] = L'\0';
-                        PRINT("Antes de llamar a la funcion %ws", config_path);
-                        //Hasta aqui esta OK
-                        //Comprobar si el proceso es Securemirror. Si es, se permite todo
-                        
-                        if (NT_SUCCESS(get_requestor_process_image_path(data, &img_path)) && wcscmp(img_path.Buffer, L"securemirror.exe") != 0)
-                        {
-                            PRINT("7");
-                            
-                            for (int i = 0; i < forbidden_folders_len; i++) //Para cada carpeta
-                            {
-                                for (int j = 0; j < challenges_by_folder_len[i]; j++) //Para cada challenge asociado a esa carpeta
-                                {
-                                    
-                                    WCHAR* challenge = challenges_by_folder[i][j];
-                                    PRINT("Challenge %ws", challenge); //OK
-                                    WCHAR challenge_ruta_absoluta[MAX_FILEPATH_LENGTH];
-                                    WCHAR* aux = NULL;
-                                    //Componer la ruta con la carpeta config_path+challenge
-                                    wcsncpy(challenge_ruta_absoluta, config_path, wcslen(config_path)); //Copiamos el config_path sin el \0
-                                    aux = challenge_ruta_absoluta + wcslen(config_path);
-                                    if (challenge[wcslen(challenge) - 1] == L':')
-                                    {
-                                        //PRINT("Encuentra el caracter %lc", challenge[wcslen(challenge) - 1]);
-                                        wcsncpy(aux, challenge, wcslen(challenge) - 1);
-                                        aux = aux + wcslen(challenge) - 1;
-                                    }
-                                    else
-                                    {
-                                        wcsncpy(aux, challenge, wcslen(challenge));
-                                        aux = aux + wcslen(challenge);
-                                    }
-                                    *aux = L'\0';
-                                    aux = NULL;
-                                    PRINT("8");
-                                    //Hasta aqui OK
-                                    PRINT("Ruta completa %ws",challenge_ruta_absoluta);
-                                    //IO_STATUS_BLOCK ioStatus3;
-                                    //HANDLE fileHandle3 = NULL;
-                                    //OBJECT_ATTRIBUTES objectAttributes3;
-                                    //UNICODE_STRING myUnicodeStr3;
-
-                                    challenge_ruta_absoluta[MAX_FILEPATH_LENGTH - 1] = L'\0'; // Innecesario, pero sirve para quitar el warning C6053
-                                    RtlInitUnicodeString(&myUnicodeStr, challenge_ruta_absoluta); // Omitir el warning porque se ha agregado el '\0' con aux
-                                    InitializeObjectAttributes(&objectAttributes,
-                                        &myUnicodeStr,
-                                        OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
-                                        NULL,
-                                        NULL);
-                                    //Necesito la ruta absoluta de cada challenge
-                                    status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
-                                        &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
-                                        NULL, 0, 0);
-                                    FltClose(fileHandle);
-                                    PRINT("9");
-                                    //Hasta aqui OK
-
-                                    if (!NT_SUCCESS(status)) //Si no existe
-                                    {
-                                        PRINT("10");
-                                        
-                                        PRINT("Bloquear acceso a %ws", forbidden_folders[i]);
-                                        //Bloquear acceso si el usuario intenta acceder a esa carpeta
-                                        //
-                                        p_file_name = NULL;
-                                        if (is_in_folder(data, &p_file_name, forbidden_folders[i]))
-                                        {
-                                            PRINT("11");
-                                            block_access = 1;
-                                        }
-                                        
-
-                                    }
-
-                                    //else
-                                    //{
-                                    //    PRINT("Challenge existente %ws", challenge);
-                                    //    FltClose(fileHandle);
-                                    //}
-                                    
-                                    
-                                }
-                            }
-                            
-                        }
-                        
-                    }
-                    
+                    PRINT("11");
+                    ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
                 }
-                
-            }
-            
-        }
-        else
-        {
-            ObDereferenceObject(fileObject);
-            FltClose(fileHandle);
-        }
-    }
-    if (block_access == 1)
-    {
-        DbgPrint("[CUSTOM] INTERCEPTING OPERATION");
 
-        status = STATUS_ACCESS_DENIED;
-        data->IoStatus.Status = status;
+            }else
+            {FltClose(fileHandle);}
+            ///////////////////////////////////////////////////////////////
+        }
+    }*/
+
+
+    // Check program that is making the call
+    status = get_requestor_process_image_path(data, &img_path);
+    if (!NT_SUCCESS(status)) {
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+    if (wcscmp(img_path.Buffer, L"securemirror.exe") == 0) {
+        ExFreePoolWithTag(img_path.Buffer, SECUREWORLD_REQUESTOR_NAME_TAG);
+        return FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
+
+
+    if (block_access) {
+        PRINT("BLOCKING ACCESS");
+
+        data->IoStatus.Status = STATUS_ACCESS_DENIED;
         data->IoStatus.Information = 0;
         return FLT_PREOP_COMPLETE;
     }
-    else
-    {
-        return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
-    }
+
+    return FLT_PREOP_SUCCESS_NO_CALLBACK; // FLT_PREOP_SUCCESS_WITH_CALLBACK;
 };
 
 FLT_POSTOP_CALLBACK_STATUS mini_post_create(PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS flt_objects, PVOID* completion_context, FLT_POST_OPERATION_FLAGS flags) {
     UNREFERENCED_PARAMETER(flags);
     UNREFERENCED_PARAMETER(flt_objects);
     UNREFERENCED_PARAMETER(completion_context);
-    WCHAR* p_file_name = NULL;
+    /*WCHAR* p_file_name = NULL;
     //NTSTATUS status = STATUS_SUCCESS;
     if (is_special_folder_get_file_name(data, &p_file_name)) {
         if (p_file_name) {
@@ -717,11 +690,11 @@ FLT_POSTOP_CALLBACK_STATUS mini_post_create(PFLT_CALLBACK_DATA data, PCFLT_RELAT
             ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
             p_file_name = NULL;
         }
-    }
+    }*/
     return FLT_PREOP_SUCCESS_NO_CALLBACK;
 };
 
-FLT_PREOP_CALLBACK_STATUS mini_pre_set_information(PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS flt_objects, PVOID* completion_context) {
+/*FLT_PREOP_CALLBACK_STATUS mini_pre_set_information(PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS flt_objects, PVOID* completion_context) {
     UNREFERENCED_PARAMETER(completion_context);
     UNREFERENCED_PARAMETER(flt_objects);
     WCHAR *p_file_name = NULL;
@@ -736,7 +709,7 @@ FLT_PREOP_CALLBACK_STATUS mini_pre_set_information(PFLT_CALLBACK_DATA data, PCFL
     }
 
     return FLT_PREOP_SUCCESS_NO_CALLBACK; // Operation continues processing but will not call the post filter
-}
+}*/
 
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
     UNREFERENCED_PARAMETER(RegistryPath);
@@ -781,47 +754,52 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, WCHAR* folder) {
     if (!CHECK_FILENAME) {
         *pp_file_name = NULL;
+        PRINT("returning TRUE\n");
         return TRUE;
     }
 
+    //PRINT("AAA\n");
     PFLT_FILE_NAME_INFORMATION file_name_info;
     NTSTATUS status;
     WCHAR p_file_path[MAX_FILEPATH_LENGTH] = { 0 };
     WCHAR* p_path_match = NULL;
     BOOLEAN ret_value = FALSE;
 
+    //PRINT("BBB\n");
+
     status = FltGetFileNameInformation(data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &file_name_info);
-
-
+    //PRINT("CCC\n");
     if (NT_SUCCESS(status)) {
         status = FltParseFileNameInformation(file_name_info);
+        //PRINT("DDD\n");
         if (NT_SUCCESS(status)) {
             if (file_name_info->Name.MaximumLength < MAX_FILEPATH_LENGTH) {
+                //PRINT("EEE\n");
                 RtlCopyMemory(p_file_path, file_name_info->Name.Buffer, file_name_info->Name.MaximumLength);
 
                 p_path_match = wcsstr(p_file_path, folder);
                 if (p_path_match != NULL && p_path_match == p_file_path) {
                     ret_value = TRUE;   // Match
-                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    PRINT("FFF\n");
+
+                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
+                        PRINT("GGG\n");
                         const size_t forbidden_folder_len = wcslen(folder);
                         size_t file_name_len = wcslen(p_file_path) - forbidden_folder_len;
 
                         wcsncpy(*pp_file_name, &p_file_path[forbidden_folder_len], file_name_len);
                         (*pp_file_name)[file_name_len] = L'\0';
 
-                        //PRINT("SW: FilePath: %ws - Length: %zu \r\n", p_file_path, wcslen(p_file_path));
-                        //PRINT("SW: File name: %ws - Length: %zu \r\n", *pp_file_name, wcslen(*pp_file_name));
+                        PRINT("SW: FilePath: %ws - Length: %zu \r\n", p_file_path, wcslen(p_file_path));
+                        PRINT("SW: File name: %ws - Length: %zu \r\n", *pp_file_name, wcslen(*pp_file_name));
                     }
-                }
-                else {
+                } else {
                     ret_value = FALSE;  // NO match
 
-                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
@@ -830,6 +808,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                     }
                 } // Check filename matches secure path
                 FltReleaseFileNameInformation(file_name_info);
+                //PRINT("returning %s\n", ret_value ? "TRUE" : "FALSE");
                 return ret_value;
             }// length >260  buffer not big enough
         }
@@ -839,6 +818,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
         FltReleaseFileNameInformation(file_name_info);
     }// Could not get
     *pp_file_name = NULL;
+    //PRINT("returning %s\n", ret_value ? "TRUE" : "FALSE");
     return ret_value;
 }
 
@@ -884,8 +864,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Match
 
-                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -902,8 +881,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
                     else {
                         ret_value = FALSE;  // NO match
 
-                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -925,7 +903,7 @@ BOOLEAN is_in_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, 
     *pp_file_name = NULL;
     return ret_value;
 }
-/*
+
 BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name) {
     if (!CHECK_FILENAME) {
         *pp_file_name = NULL;
@@ -955,8 +933,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     if (p_path_match != NULL && p_path_match == p_file_path) {
                         ret_value = TRUE;   // Si hay Match
 
-                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                         if (*pp_file_name) {
@@ -973,8 +950,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
                     else {
                         ret_value = FALSE;  // NO match
 
-                        //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                        *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                        *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                         if (*pp_file_name) {
                             file_name_len = wcslen(p_file_path);
 
@@ -996,7 +972,7 @@ BOOLEAN is_in_forbidden_folders(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_f
     *pp_file_name = NULL;
     return ret_value;
 }
-*/
+
 
 
 /**
@@ -1036,8 +1012,7 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 if (p_path_match!=NULL && p_path_match==p_file_path) {
                     ret_value = TRUE;   // Match
 
-                    //*pp_file_name = (WCHAR *)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                    *pp_file_name = (WCHAR *)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR *)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH *sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     //WCHAR pp_file_name[MAX_FILEPATH_LENGTH];
 
                     if (*pp_file_name) {
@@ -1053,8 +1028,7 @@ BOOLEAN is_special_folder_get_file_name(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHA
                 } else {
                     ret_value = FALSE;  // NO match
 
-                    //*pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
-                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 
@@ -1098,8 +1072,7 @@ NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PU
 
     p_img_path->Length = 0;
     p_img_path->MaximumLength = MAX_FILEPATH_LENGTH;
-    //p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
-    p_img_path->Buffer = (PWSTR)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
+    p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
     if (NULL != p_img_path->Buffer) {
         status = get_process_image_path(proc_handle, p_img_path);
         if (NT_SUCCESS(status)) {
@@ -1180,8 +1153,7 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING p_img_pat
     }
 
     // Allocate a temporary buffer to store the path name
-    //buffer = ExAllocatePoolWithTag(NonPagedPool, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
-    buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
+    buffer = ExAllocatePoolWithTag(NonPagedPool, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
 
     if (NULL == buffer) {
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -1250,6 +1222,62 @@ int fill_forbidden_folders(WCHAR* input)
     return 0;
 }
 
+BOOLEAN check_access_for_folder(PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS flt_objects) {
+    WCHAR* p_file_name = NULL;
+    HANDLE fileHandle;
+
+    PVOID fileObject = NULL;
+    UNICODE_STRING myUnicodeStr;
+    IO_STATUS_BLOCK ioStatus;
+    OBJECT_ATTRIBUTES objectAttributes;
+    NTSTATUS status = STATUS_SUCCESS;
+
+    BOOLEAN block = FALSE;
+
+
+    // Buscar folder en forbidden_folders
+    for (int i = 0; i < forbidden_folders_len; i++) {
+        if (is_in_folder(data, &p_file_name, forbidden_folders[i])) {
+            PRINT("is_in_folder = TRUE");
+
+            if (NULL == p_file_name) {
+                break;
+            }
+            PRINT("Nombre de la carpeta: %ws\n", p_file_name);
+
+            // For ch in challeges de la forbiden folder
+            for (int j = 0; j < challenges_by_folder_len[i]; j++) {
+
+                RtlInitUnicodeString(&myUnicodeStr, challenges_by_folder[i][j]);
+                InitializeObjectAttributes(&objectAttributes,
+                    &myUnicodeStr,
+                    OBJ_CASE_INSENSITIVE | OBJ_OPENIF,
+                    NULL,
+                    NULL);
+                //Necesito la ruta absoluta de cada challenge
+                status = FltCreateFile(flt_objects->Filter, flt_objects->Instance, &fileHandle, GENERIC_READ,
+                    &objectAttributes, &ioStatus, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
+                    NULL, 0, 0);
+
+
+                if (!NT_SUCCESS(status)) //Si no existe
+                {
+                    block = TRUE;
+                    break;
+                }
+                FltClose(fileHandle);
+
+            }
+        } else {
+            PRINT("is_in_folder = FALSE");
+        }
+        if (NULL != p_file_name) {
+            ExFreePoolWithTag(p_file_name, SECUREWORLD_FILENAME_TAG);
+        }
+    }
+    return block;
+}
+
 int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
 {
     int i = 0;
@@ -1267,27 +1295,27 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
     while (i < (int)input_len)
     {
         len_folder++;
-        if (input[i] == L':') //Si encuentra :, guarda hasta ahí en forbidden_folders
+        if (input[i] == L':') //Si encuentra :, guarda hasta ahï¿½ en forbidden_folders
         {
-            wcsncpy(forbidden_folders[forbidden_folders_len], aux, len_folder - 1);  //Copiamos todo menos el :
+            wcsncpy(forbidden_folders[forbidden_folders_len], aux, len_folder - 1);  //Copiamos todo menos el ;
             forbidden_folders[forbidden_folders_len][len_folder - 1] = L'\0'; //Le ponemos un /0 al final porque wcsncpy no lo hace
             //PRINT("Forbidden_folders   0    (%ws)\n", forbidden_folders[0]);
             //PRINT("Forbidden_folders   1    (%ws)\n", forbidden_folders[1]);
-            aux = input + i + 1; //Actualizamos Aux para que apunte al primer challenge
+            aux= input + i + 1; //Actualizamos Aux para que apunte al primer challenge
             len_folder = 0;  //Siguiente carpeta a guardar
             //Ahora rellenamos los challenges asociados a la carpeta prohibida
             i++;
-            while (input[i] != L'\n') //Hasta que no se llegue al final de la línea
+            while (input[i] != L'\n') //Hasta que no se llegue al final de la lï¿½nea
             {
                 len_challenge++;
                 if (input[i] == L':') //Si encuentra :, rellena un challenge asociado a esa carpeta
                 {
-                    wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el :
+                    wcsncpy(challenges_by_folder[forbidden_folders_len][challenge_number], aux, len_challenge - 1);  //Copiamos todo menos el ;
                     if (i + 3 < (int)input_len) //Si no es el ultimo caracter
                     {
                         challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 1] = L'\0';
                     }
-                    else //Si es el último, workaround para eliminar el :
+                    else //Si es el ï¿½ltimo, workaround para eliminar el :
                     {
                         challenges_by_folder[forbidden_folders_len][challenge_number][len_challenge - 2] = L'\0';
                     }
@@ -1312,5 +1340,45 @@ int fill_forbidden_folders_and_challenges_by_folder(WCHAR* input)
         }
         i++;
     }
+    aux = NULL;
     return 0;
+}
+
+void rewrite_challenge_filenames_as_absolute_paths() {
+
+    WCHAR* p_file_name = NULL;
+
+    int block_access = 0;
+
+    WCHAR* challenge_filename = NULL;
+    WCHAR challenge_fullpath[MAX_FILEPATH_LENGTH] = L"";
+    WCHAR* aux = NULL;
+
+    for (int i = 0; i < forbidden_folders_len; i++) {
+        for (int j = 0; j < challenges_by_folder_len[i]; j++) {
+            challenge_filename = challenges_by_folder[i][j];
+            PRINT("challenge_filename = %ws", challenge_filename);
+
+            // Compose full path (config_path + challenge_filename)
+            wcsncpy(challenge_fullpath, config_path, wcslen(config_path)); // Copy config_path without '\0'
+            aux = challenge_fullpath + wcslen(config_path);
+            // Copy challenge_filename without ':'
+            if (challenge_filename[wcslen(challenge_filename) - 1] == L':') {
+                //PRINT("Encuentra el caracter %lc", challenge[wcslen(challenge) - 1]);
+                wcsncpy(aux, challenge_filename, wcslen(challenge_filename) - 1);
+                aux = aux + wcslen(challenge_filename) - 1;
+            } else {
+                wcsncpy(aux, challenge_filename, wcslen(challenge_filename));
+                aux = aux + wcslen(challenge_filename);
+            }
+            *aux = L'\0';
+            aux = NULL;
+            challenge_filename = NULL;
+
+            // Copy challenge_fullpath to challenges_by_folder
+            wcscpy(challenges_by_folder[i][j], challenge_fullpath);
+
+            PRINT("challenge_fullpath = %ws", challenge_fullpath);
+        }
+    }
 }
