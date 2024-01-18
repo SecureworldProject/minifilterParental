@@ -1,15 +1,11 @@
 ﻿  Building 'FsFilter1' with toolset 'WindowsKernelModeDriver10.0' and the 'Desktop' target platform.
   Stamping x64\Debug\FsFilter1.inf
-  Stamping [Version] section with DriverVer=01/16/2024,16.59.33.295
+  Stamping [Version] section with DriverVer=01/18/2024,14.47.47.34
 C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\FsFilter1\FsFilter1.inf : warning 1420: [DefaultInstall]-based INF cannot be processed as Primitive.
 C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\FsFilter1\FsFilter1.inf(26-26): warning 1421: Section [DefaultInstall] should have an architecture decoration.
 C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\FsFilter1\FsFilter1.inf(37-37): warning 1421: Section [DefaultUninstall] should have an architecture decoration.
 C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\FsFilter1\FsFilter1.inf(76-76): warning 1205: Section [MiniFilter.DriverFiles] referenced from DelFiles and CopyFiles directive.
-  FsFilter1.c
   FsFilter1.vcxproj -> C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\x64\Debug\FsFilter1.sys
-  Done Adding Additional Store
-  Successfully signed: C:\Users\molinaca\Documents\projects\SECUREWORLD\minifilterParental\x64\Debug\FsFilter1.sys
-  
   .........................
   Signability test complete.
   

@@ -11,7 +11,7 @@ Signature   = "$Windows NT$"
 Class = "SecurityEnhancer"; "ActivityMonitor"
 ClassGuid = {d02bc3da-0c8e-4945-9bd5-f1883c226c8c}; {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
 Provider    = %ManufacturerName%
-DriverVer = 01/16/2024,16.59.33.295
+DriverVer = 01/18/2024,14.47.47.34
 CatalogFile = FsFilter1.cat
 PnpLockDown=1
 
