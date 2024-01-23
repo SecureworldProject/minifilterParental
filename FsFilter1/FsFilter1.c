@@ -262,7 +262,7 @@ NTSTATUS instance_setup(_In_ PCFLT_RELATED_OBJECTS flt_objects, _In_ FLT_INSTANC
 
             // Now allocate a buffer to hold this name
             #pragma prefast(suppress:__WARNING_MEMORY_LEAK, "ctx->Name.Buffer will not be leaked because it is freed in cleanup_volume_context")
-            ctx->Name.Buffer = ExAllocatePoolWithTag(NonPagedPool, size, SECUREWORLD_VOLUME_NAME_TAG);
+            ctx->Name.Buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, size, SECUREWORLD_VOLUME_NAME_TAG);
             if (ctx->Name.Buffer == NULL) {
                 status = STATUS_INSUFFICIENT_RESOURCES;
                 leave;
@@ -721,7 +721,7 @@ NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PU
 
     p_img_path->Length = 0;
     p_img_path->MaximumLength = MAX_FILEPATH_LENGTH;
-    p_img_path->Buffer = (PWSTR)ExAllocatePoolWithTag(NonPagedPool, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
+    p_img_path->Buffer = (PWSTR)ExAllocatePool2(POOL_FLAG_NON_PAGED, MAX_FILEPATH_LENGTH, SECUREWORLD_REQUESTOR_NAME_TAG);
     if (NULL != p_img_path->Buffer) {
         status = get_process_image_path(proc_handle, p_img_path);
         if (NT_SUCCESS(status)) {
@@ -747,7 +747,6 @@ NTSTATUS get_requestor_process_image_path(_In_ PFLT_CALLBACK_DATA data, _Out_ PU
 * @param PUNICODE_STRING p_img_path
 *       Empty pointer used to output the name if the function returns a valid status.
 *       May be NULL if allocation did not succeed.
-*       Memory is allocated inside, remember to free it with "ExFreePoolWithTag(p_img_path->Buffer, SECUREWORLD_REQUESTOR_NAME_TAG);".
 *
 * @return NTSTATUS
 *       A status corresponding to the success or failure of the operation.
@@ -763,20 +762,26 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING p_img_pat
 
     PAGED_CODE(); // This eliminates the possibility of the IDLE Thread/Process
 
-    status = PsLookupProcessByProcessId(pid, &p_eprocess);
-
-    if (NT_SUCCESS(status)) {
-        status = ObOpenObjectByPointer(p_eprocess, 0, NULL, 0, 0, KernelMode, &h_process);
-        if (NT_SUCCESS(status)) {
-        } else {
-            PRINT("SW: ObOpenObjectByPointer Failed: %08x\n", status);
-        }
-        ObDereferenceObject(p_eprocess);
-    } else {
-        PRINT("SW: PsLookupProcessByProcessId Failed: %08x\n", status);
+    #pragma prefast(suppress:6001, "The pointer itself is checked before the member Buffer")
+    if (NULL == p_img_path || NULL == p_img_path->Buffer) {
+        return STATUS_INVALID_PARAMETER;
     }
+    status = PsLookupProcessByProcessId(pid, &p_eprocess);
+    if (!NT_SUCCESS(status)) {
+        PRINT("SW: PsLookupProcessByProcessId Failed: %08x\n", status);
+        return STATUS_UNSUCCESSFUL;
+    }
+    status = ObOpenObjectByPointer(p_eprocess, 0, NULL, 0, 0, KernelMode, &h_process);
+    if (!NT_SUCCESS(status)) {
+        PRINT("SW: ObOpenObjectByPointer Failed: %08x\n", status);
+        ObDereferenceObject(p_eprocess);
+        return STATUS_UNSUCCESSFUL;
+    }
+    ObDereferenceObject(p_eprocess);
 
+    // Ensure the routine called "ZwQueryInformationProcess" is accessible through the variable ZwQueryInformationProcess
     if (NULL == ZwQueryInformationProcess) {
+        PRINT("SW: THIS HAPPENS JUST ONCEEEEEEEEEEEEEEEEEEEE\n");
         UNICODE_STRING routine_name;
         RtlInitUnicodeString(&routine_name, L"ZwQueryInformationProcess");
 
@@ -784,6 +789,7 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING p_img_pat
 
         if (NULL == ZwQueryInformationProcess) {
             PRINT("SW: Cannot resolve ZwQueryInformationProcess\n");
+            return STATUS_UNSUCCESSFUL;
         }
     }
 
@@ -802,7 +808,7 @@ NTSTATUS get_process_image_path(_In_ HANDLE pid, _Out_ PUNICODE_STRING p_img_pat
     }
 
     // Allocate a temporary buffer to store the path name
-    buffer = ExAllocatePoolWithTag(NonPagedPool, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
+    buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, returned_length, SECUREWORLD_REQUESTOR_NAME_TAG);
 
     if (NULL == buffer) {
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -928,7 +934,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 if (p_path_match != NULL && p_path_match == p_file_path) {
                     ret_value = TRUE;   // Match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
 
                     if (*pp_file_name) {
                         const size_t forbidden_folder_len = wcslen(folder);
@@ -943,7 +949,7 @@ BOOLEAN is_in_folder(_In_ PFLT_CALLBACK_DATA data, _Out_ WCHAR** pp_file_name, W
                 } else {
                     ret_value = FALSE;  // NO match
 
-                    *pp_file_name = (WCHAR*)ExAllocatePoolWithTag(PagedPool, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
+                    *pp_file_name = (WCHAR*)ExAllocatePool2(POOL_FLAG_PAGED, MAX_FILEPATH_LENGTH * sizeof(WCHAR), (ULONG)SECUREWORLD_FILENAME_TAG);
                     if (*pp_file_name) {
                         size_t file_name_len = wcslen(p_file_path);
 

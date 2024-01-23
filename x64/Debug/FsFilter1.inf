@@ -5,13 +5,11 @@
 [Version]
 Signature   = "$Windows NT$"
 ; TODO - Change the Class and ClassGuid to match the Load Order Group value, see https://msdn.microsoft.com/en-us/windows/hardware/gg462963
-; Class       = "ActivityMonitor"                         ;This is determined by the work this filter driver does
-; ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}    ;This value is determined by the Load Order Group value
 ;Creo que este es el mejor:   FSFilter Security Enhancer 	80000-89999 	Includes filter drivers that apply lockdown and enhanced access control lists (ACLs).
-Class = "SecurityEnhancer"; "ActivityMonitor"
-ClassGuid = {d02bc3da-0c8e-4945-9bd5-f1883c226c8c}; {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Class = "SecurityEnhancer"
+ClassGuid = {d02bc3da-0c8e-4945-9bd5-f1883c226c8c}
 Provider    = %ManufacturerName%
-DriverVer = 01/18/2024,14.47.47.34
+DriverVer = 01/23/2024,15.8.47.738
 CatalogFile = FsFilter1.cat
 PnpLockDown=1
 
@@ -54,7 +52,6 @@ StartType        = 3                            ;SERVICE_DEMAND_START			// This 
 ;StartType        = 0x00000000                   ;SERVICE_BOOT_START 			// This means filter is launched at startup automatically
 ErrorControl     = 1                            ;SERVICE_ERROR_NORMAL
 ; TODO - Change the Load Order Group value
-; LoadOrderGroup = "FSFilter Activity Monitor"
 LoadOrderGroup = "FSFilter SecurityEnhancer" ;"Encryption"
 AddReg           = MiniFilter.AddRegistry
 
@@ -98,7 +95,6 @@ DiskId1                 = "FsFilter1 Device Installation Disk"
 DefaultInstance         = "FsFilter1 Instance"
 Instance1.Name          = "FsFilter1 Instance"
 ; TODO - Change the altitude value, see https://msdn.microsoft.com/en-us/windows/hardware/drivers/ifs/load-order-groups-and-altitudes-for-minifilter-drivers
-;Instance1.Altitude       = "371000"
-Instance1.Altitude       = "85030";"145030"
+Instance1.Altitude       = "85030"
 Instance1.Flags         = 0x0              ; Allow all attachments
 
